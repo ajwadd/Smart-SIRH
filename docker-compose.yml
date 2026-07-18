@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: smarthr-db
+    ports:
+      - "${DB_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - smarthr-network
+    restart: always
+
+  minio:
+    image: minio/minio:latest
+    container_name: smarthr-minio
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
+    ports:
+      - "9005:9000"
+      - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    networks:
+      - smarthr-network
+    restart: always
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: smarthr-searxng
+    ports:
+      - "8888:8080"
+    environment:
+      - SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+      - UWSGI_WORKERS=4
+      - UWSGI_THREADS=4
+    networks:
+      - smarthr-network
+    restart: always
+
+  hr-api:
+    build:
+      context: ./hr-api
+      dockerfile: Dockerfile
+    container_name: smarthr-api
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - MINIO_URL=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+      - AI_SERVICE_URL=http://hr-ai-service:8082/ai
+    depends_on:
+      - db
+      - minio
+    networks:
+      - smarthr-network
+    restart: always
+
+  hr-ai-service:
+    build:
+      context: ./hr-ai-service
+      dockerfile: Dockerfile
+    container_name: smarthr-ai-service
+    ports:
+      - "8082:8082"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SEARXNG_URL=http://searxng:8080
+      - VECTOR_STORE_PATH=${VECTOR_STORE_PATH}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - searxng
+    volumes:
+      - ai_store_data:/app/data
+    networks:
+      - smarthr-network
+    restart: always
+
+  hr-ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: smarthr-ml-service
+    ports:
+      - "8083:8083"
+    networks:
+      - smarthr-network
+    restart: always
+
+volumes:
+  db_data:
+    driver: local
+  minio_data:
+    driver: local
+  ai_store_data:
+    driver: local
+
+networks:
+  smarthr-network:
+    driver: bridge

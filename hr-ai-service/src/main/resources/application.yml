@@ -1,0 +1,60 @@
+server:
+  port: 8082
+  servlet:
+    context-path: /ai
+
+spring:
+  application:
+    name: hr-ai-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:smarthr}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  ai:
+    openai:
+      api-key: ${GEMINI_API_KEY:demo}
+      base-url: https://generativelanguage.googleapis.com/v1beta/openai
+      chat:
+        options:
+          model: gemini-2.5-flash
+      embedding:
+        enabled: true
+        options:
+          model: gemini-embedding-001
+    vectorstore:
+      pgvector:
+        table-name: ai_vector_store
+        dimensions: 768
+        initialize-schema: true
+    mcp:
+      server:
+        name: smarthr-ai
+        version: 1.0.0
+        protocol: STREAMABLE
+
+# ========================
+# SEARXNG SEARCH & VECTORSTORE LOCAL CONFIG
+# ========================
+searxng:
+  url: ${SEARXNG_URL:http://localhost:8888}
+
+vectorstore:
+  file-path: ${VECTOR_STORE_PATH:ai_vector_store.json}
+
+groq:
+  api-key: ${GROQ_API_KEY:demo}
+  base-url: https://api.groq.com/openai
+  model: llama-3.3-70b-versatile
+
+logging:
+  level:
+    com.smarthrai: DEBUG
+    org.springframework.ai: DEBUG

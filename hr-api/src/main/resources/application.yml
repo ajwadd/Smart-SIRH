@@ -1,0 +1,122 @@
+spring:
+  application:
+    name: smarthr-api
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  # ========================
+  # DATABASE (PostgreSQL)
+  # ========================
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:Smart-SIRH}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+  # ========================
+  # JACKSON
+  # ========================
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# ========================
+# SERVER
+# ========================
+server:
+  port: 8081
+  servlet:
+    context-path: /api
+
+# ========================
+# JWT CONFIG
+# ========================
+jwt:
+  secret: ${JWT_SECRET:SmartHR-AI-Secret-Key-2024-Enterprise-HRMS-JWT-Token-256bit-Secure}
+  expiration: 86400000        # 24 heures
+  refresh-expiration: 604800000  # 7 jours
+
+# ========================
+# PAYROLL CONFIG
+# ========================
+payroll:
+  monthly-working-hours: 191.0
+  cnss:
+    rate: 0.0448
+    limit: 6000.0
+  amo:
+    rate: 0.0226
+  professional-expenses:
+    rate: 0.20
+    limit: 2500.0
+  family-deduction:
+    amount-per-person: 30.0
+    max-persons: 6
+  overtime:
+    standard-rate: 1.25
+  insurance:
+    rate: 0.0
+    fixed-amount: 150.0
+  tax-brackets:
+    - min: 0
+      max: 2500
+      rate: 0.0
+      deduction: 0.0
+    - min: 2501
+      max: 4166.67
+      rate: 0.10
+      deduction: 250.0
+    - min: 4167
+      max: 5000
+      rate: 0.20
+      deduction: 666.67
+    - min: 5001
+      max: 6666.67
+      rate: 0.30
+      deduction: 1166.67
+    - min: 6667
+      max: 15000
+      rate: 0.34
+      deduction: 1433.33
+    - min: 15001
+      max: 999999999
+      rate: 0.38
+      deduction: 2033.33
+
+# ========================
+# MINIO STORAGE CONFIG
+# ========================
+minio:
+  url: ${MINIO_URL:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:smarthr-documents}
+
+# ========================
+# LOGGING
+# ========================
+logging:
+  level:
+    com.smarthr: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# ========================
+# MICROSERVICES INTER-COMMUNICATION
+# ========================
+hr-ai-service:
+  url: ${AI_SERVICE_URL:http://localhost:8082/ai}
