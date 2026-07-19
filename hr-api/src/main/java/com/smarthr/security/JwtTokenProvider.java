@@ -34,6 +34,9 @@ public class JwtTokenProvider {
         this.jwtRefreshExpirationInMs = jwtRefreshExpirationInMs;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.smarthr.repository.UserRepository userRepository;
+
     public String generateAccessToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
         return generateAccessToken(userPrincipal);
@@ -44,6 +47,17 @@ public class JwtTokenProvider {
         claims.put("roles", userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList()));
+
+        if (userRepository != null) {
+            try {
+                com.smarthr.entity.User user = userRepository.findByUsername(userDetails.getUsername()).orElse(null);
+                if (user != null && user.getEmployee() != null) {
+                    claims.put("employeeId", user.getEmployee().getId().toString());
+                }
+            } catch (Exception e) {
+                log.error("Erreur lors de la récupération de l'employeeId pour le token JWT: {}", e.getMessage());
+            }
+        }
 
         return Jwts.builder()
                 .claims(claims)

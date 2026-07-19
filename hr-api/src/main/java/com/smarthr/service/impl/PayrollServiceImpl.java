@@ -58,6 +58,13 @@ public class PayrollServiceImpl implements PayrollService {
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorConstants.EMPLOYEE_NOT_FOUND, 
                         "Employé introuvable avec l'ID: " + request.getEmployeeId()));
 
+        // Supprimer le bulletin existant pour le même mois s'il y en a un afin d'éviter les doublons
+        payrollRepository.findByEmployeeIdAndPayMonth(employee.getId(), request.getPayMonth())
+                .ifPresent(p -> {
+                    payrollRepository.delete(p);
+                    payrollRepository.flush();
+                });
+
         double baseSalary = getEmployeeBaseSalary(employee);
         double bonus = request.getBonus() != null ? request.getBonus() : 0.0;
         double overtimeHours = request.getOvertimeHours() != null ? request.getOvertimeHours() : 0.0;

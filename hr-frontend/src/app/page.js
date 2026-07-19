@@ -56,6 +56,8 @@ export default function Home() {
   const [adminEmployees, setAdminEmployees] = useState([]);
   const [adminDepartments, setAdminDepartments] = useState([]);
   const [adminLeaves, setAdminLeaves] = useState([]);
+  const [leaveSearchQuery, setLeaveSearchQuery] = useState("");
+  const [leaveCurrentPage, setLeaveCurrentPage] = useState(1);
   const [currentEmployee, setCurrentEmployee] = useState(null);
   
   // Formulaire Employé
@@ -490,6 +492,8 @@ export default function Home() {
       });
       if (res.ok) {
         setAdminStatus("✅ Congé approuvé avec succès !");
+        // Mise à jour instantanée de l'état local pour un affichage sur place
+        setAdminLeaves(prev => prev.map(l => l.id === leaveId ? { ...l, status: "APPROVED", approvedBy: "Manager" } : l));
         fetchAdminData();
       } else {
         const err = await res.json();
@@ -511,6 +515,8 @@ export default function Home() {
       });
       if (res.ok) {
         setAdminStatus("✅ Congé rejeté avec succès !");
+        // Mise à jour instantanée de l'état local pour un affichage sur place
+        setAdminLeaves(prev => prev.map(l => l.id === leaveId ? { ...l, status: "REJECTED", rejectionReason: reason } : l));
         fetchAdminData();
       } else {
         const err = await res.json();
@@ -659,7 +665,7 @@ export default function Home() {
 
   // Calculer la prédiction d'attrition
   const handlePredict = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoadingPredict(true);
     setPrediction(null);
 
@@ -686,6 +692,34 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Prediction error:", err);
+    } finally {
+      setLoadingPredict(false);
+    }
+  };
+
+  const handleLoadEmployeeFeatures = async (employeeId) => {
+    if (!employeeId) return;
+    setLoadingPredict(true);
+    setPrediction(null);
+    try {
+      const res = await fetch(`/api/proxy/predict?employeeId=${employeeId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAge(data.age || 30);
+        setMonthlyIncome(data.monthlyIncome || 10000);
+        setYearsAtCompany(data.yearsAtCompany || 3);
+        setJobSatisfaction(data.jobSatisfaction || 3);
+        setWorkLifeBalance(data.workLifeBalance || 3);
+        setOvertime(data.overtime || 0);
+        setNumPromotions(data.numPromotions || 0);
+        setPrediction(data);
+      } else {
+        console.error("Failed to load employee features");
+      }
+    } catch (e) {
+      console.error("Error loading features:", e);
     } finally {
       setLoadingPredict(false);
     }
@@ -885,6 +919,24 @@ En te basant sur le règlement interne et la politique d'audit de SmartHR, peux-
     );
   }
 
+  // Filtrage et pagination des congés pour l'administration ou la liste utilisateur
+  const filteredLeaves = adminLeaves.filter(l => {
+    const belongsToUser = isHrOrAdmin || l.employeeId === currentEmployee?.id;
+    if (!belongsToUser) return false;
+    
+    if (leaveSearchQuery.trim() === "") return true;
+    const fullName = (l.employeeFullName || "").toLowerCase();
+    return fullName.includes(leaveSearchQuery.toLowerCase());
+  });
+
+  const leavesPerPage = 5;
+  const totalLeavePages = Math.max(1, Math.ceil(filteredLeaves.length / leavesPerPage));
+  const currentPageSafe = Math.min(leaveCurrentPage, totalLeavePages);
+  const paginatedLeaves = filteredLeaves.slice(
+    (currentPageSafe - 1) * leavesPerPage,
+    currentPageSafe * leavesPerPage
+  );
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--canvas)", color: "var(--ink)", fontFamily: "'Inter', system-ui, sans-serif" }}>
       
@@ -953,7 +1005,7 @@ En te basant sur le règlement interne et la politique d'audit de SmartHR, peux-
       </aside>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <main style={{ marginLeft: "260px", flex: 1, padding: "36px 40px", minWidth: "0", display: "flex", flexDirection: "column", gap: "28px" }}>
+      <main style={{ marginLeft: "260px", flex: 1, padding: "20px 24px", minWidth: "0", display: "flex", flexDirection: "column", gap: "18px" }}>
         
         {/* Top bar */}
         <div className="topbar">
@@ -1177,6 +1229,17 @@ En te basant sur le règlement interne et la politique d'audit de SmartHR, peux-
             </div>
             
             <form onSubmit={handlePredict} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+              <div className="field">
+                <label className="field-label">Pré-remplir depuis les données réelles d'un collaborateur</label>
+                <select onChange={(e) => handleLoadEmployeeFeatures(e.target.value)} defaultValue="">
+                  <option value="">— Choisir un collaborateur —</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid-2">
                 <div className="field">
                   <label className="field-label">Âge ({age} ans)</label>
@@ -1360,16 +1423,40 @@ En te basant sur le règlement interne et la politique d'audit de SmartHR, peux-
 
           {/* Liste de suivi & décisions */}
           <div className="card">
-            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "16px" }}>
-              {isHrOrAdmin ? `Toutes les Demandes (${adminLeaves.length})` : "Mes Demandes & Statuts"}
-            </h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>
+                {isHrOrAdmin ? `Toutes les Demandes (${filteredLeaves.length})` : "Mes Demandes & Statuts"}
+              </h3>
+              
+              {/* Filtre de recherche par nom */}
+              <input
+                type="text"
+                placeholder="Rechercher par nom..."
+                value={leaveSearchQuery}
+                onChange={(e) => {
+                  setLeaveSearchQuery(e.target.value);
+                  setLeaveCurrentPage(1);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: "0.85rem",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface-subtle)",
+                  color: "var(--ink-primary)",
+                  maxWidth: "200px"
+                }}
+              />
+            </div>
             
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "450px", overflowY: "auto" }}>
-              {(isHrOrAdmin ? adminLeaves : adminLeaves.filter(l => l.employeeId === currentEmployee?.id)).length === 0 ? (
-                <p style={{ color: "var(--ink-tertiary)", fontSize: "0.9rem", textAlign: "center", padding: "20px 0" }}>Aucune demande enregistrée.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", minHeight: "200px", maxHeight: "450px", overflowY: "auto" }}>
+              {paginatedLeaves.length === 0 ? (
+                <p style={{ color: "var(--ink-tertiary)", fontSize: "0.9rem", textAlign: "center", padding: "40px 0" }}>
+                  {leaveSearchQuery.trim() !== "" ? "Aucune demande ne correspond à ce nom." : "Aucune demande enregistrée."}
+                </p>
               ) : (
-                (isHrOrAdmin ? adminLeaves : adminLeaves.filter(l => l.employeeId === currentEmployee?.id)).map((l, i) => (
-                  <div key={i} className="list-item" style={{ flexDirection: "column", alignItems: "stretch", gap: "8px" }}>
+                paginatedLeaves.map((l, i) => (
+                  <div key={l.id || i} className="list-item" style={{ flexDirection: "column", alignItems: "stretch", gap: "8px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontWeight: "700", fontSize: "0.9rem" }}>{l.employeeFullName || "Collaborateur"}</span>
                       <span className={`badge ${l.status === "APPROVED" ? "badge-success" : l.status === "REJECTED" ? "badge-danger" : "badge-warning"}`}>
@@ -1397,6 +1484,31 @@ En te basant sur le règlement interne et la politique d'audit de SmartHR, peux-
                 ))
               )}
             </div>
+
+            {/* Contrôles de pagination */}
+            {totalLeavePages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+                <button
+                  disabled={currentPageSafe === 1}
+                  onClick={() => setLeaveCurrentPage(prev => Math.max(1, prev - 1))}
+                  className="btn-secondary btn-sm"
+                  style={{ padding: "4px 8px", fontSize: "0.85rem" }}
+                >
+                  Précédent
+                </button>
+                <span style={{ fontSize: "0.85rem", color: "var(--ink-secondary)" }}>
+                  Page {currentPageSafe} sur {totalLeavePages}
+                </span>
+                <button
+                  disabled={currentPageSafe === totalLeavePages}
+                  onClick={() => setLeaveCurrentPage(prev => Math.min(totalLeavePages, prev + 1))}
+                  className="btn-secondary btn-sm"
+                  style={{ padding: "4px 8px", fontSize: "0.85rem" }}
+                >
+                  Suivant
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

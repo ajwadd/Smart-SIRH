@@ -48,6 +48,9 @@ public class Leave extends BaseEntity {
     @Column(name = "rejection_reason")
     private String rejectionReason;
 
+    @Column(name = "validation_notes", columnDefinition = "TEXT")
+    private String validationNotes;
+
     // ========================
     // RELATIONS
     // ========================

@@ -26,4 +26,5 @@ public class LeaveDTO {
     private String rejectionReason;
     private UUID employeeId;
     private String employeeFullName;
+    private String validationNotes;
 }

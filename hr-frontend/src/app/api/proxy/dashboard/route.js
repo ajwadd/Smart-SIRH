@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -12,6 +14,7 @@ export async function GET(request) {
       headers: {
         'Authorization': authHeader,
       },
+      cache: 'no-store'
     });
 
     if (response.status === 204) {

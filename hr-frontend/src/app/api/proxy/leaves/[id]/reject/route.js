@@ -7,7 +7,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ message: 'Token d\'autorisation manquant' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const reason = searchParams.get('reason') || '';
 

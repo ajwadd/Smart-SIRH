@@ -81,6 +81,9 @@ public class ChatServiceImpl implements ChatService {
         try {
             com.smarthrai.security.SecurityContext.setToken(token);
             com.smarthrai.security.SecurityContext.setOriginalMessage(message);
+            if (employeeId != null) {
+                com.smarthrai.security.SecurityContext.saveLastResolvedEmployee(employeeId.toString());
+            }
 
             // Isoler l'historique de conversation par utilisateur connecté ET employé cible
             String userId = extractUserIdFromToken(token);

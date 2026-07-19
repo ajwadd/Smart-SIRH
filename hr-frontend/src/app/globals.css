@@ -137,7 +137,7 @@ h4, .h4-display {
   box-shadow: var(--shadow-sm);
   transition: all var(--duration-normal) var(--ease-out);
   color: var(--ink);
-  padding: 28px;
+  padding: 18px;
 }
 
 .card:hover {
@@ -153,7 +153,7 @@ h4, .h4-display {
   box-shadow: var(--shadow-sm);
   transition: all var(--duration-normal) var(--ease-out);
   color: var(--ink);
-  padding: 28px;
+  padding: 18px;
 }
 .glass-panel:hover { 
   border-color: var(--border-strong);
@@ -165,7 +165,7 @@ h4, .h4-display {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 28px;
+  padding: 18px;
   text-align: center;
   transition: all var(--duration-normal) var(--ease-out);
   position: relative;
@@ -222,10 +222,10 @@ h4, .h4-display {
   width: 260px;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 28px 16px;
+  padding: 18px 12px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 20px;
   position: fixed;
   height: 100vh;
   left: 0;

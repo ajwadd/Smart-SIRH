@@ -14,6 +14,7 @@ import java.util.UUID;
 public interface PayrollRepository extends JpaRepository<Payroll, UUID> {
     List<Payroll> findByEmployeeId(UUID employeeId);
     List<Payroll> findByPayMonth(LocalDate payMonth);
+    java.util.Optional<Payroll> findByEmployeeIdAndPayMonth(UUID employeeId, LocalDate payMonth);
     List<Payroll> findByEmployeeIdAndPayMonthBetween(UUID employeeId, LocalDate start, LocalDate end);
 
     @Query("SELECT AVG(p.netSalary) FROM Payroll p WHERE p.payMonth = :month")

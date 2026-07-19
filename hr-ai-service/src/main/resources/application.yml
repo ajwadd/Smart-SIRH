@@ -21,14 +21,14 @@ spring:
   ai:
     openai:
       api-key: ${GEMINI_API_KEY:demo}
-      base-url: https://generativelanguage.googleapis.com/v1beta/openai
+      base-url: ${LLM_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
       chat:
         options:
-          model: gemini-2.5-flash
+          model: ${LLM_MODEL_NAME:gemini-2.5-flash}
       embedding:
-        enabled: true
+        enabled: ${LLM_EMBEDDING_ENABLED:true}
         options:
-          model: gemini-embedding-001
+          model: ${LLM_EMBEDDING_MODEL_NAME:gemini-embedding-001}
     vectorstore:
       pgvector:
         table-name: ai_vector_store
@@ -52,9 +52,13 @@ vectorstore:
 groq:
   api-key: ${GROQ_API_KEY:demo}
   base-url: https://api.groq.com/openai
-  model: llama-3.3-70b-versatile
+  model: ${GROQ_MODEL:llama-3.1-8b-instant}
 
 logging:
   level:
     com.smarthrai: DEBUG
     org.springframework.ai: DEBUG
+
+ml:
+  service:
+    url: ${ML_SERVICE_URL:http://smarthr-ml-service:8083}

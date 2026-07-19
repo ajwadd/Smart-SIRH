@@ -23,6 +23,7 @@ public class LeaveMapper {
         dto.setDaysCount(leave.getDaysCount());
         dto.setApprovedBy(leave.getApprovedBy());
         dto.setRejectionReason(leave.getRejectionReason());
+        dto.setValidationNotes(leave.getValidationNotes());
 
         if (leave.getEmployee() != null) {
             dto.setEmployeeId(leave.getEmployee().getId());

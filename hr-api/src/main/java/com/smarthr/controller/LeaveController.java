@@ -62,4 +62,10 @@ public class LeaveController {
     public ResponseEntity<LeaveBalanceDTO> getLeaveBalance(@PathVariable UUID employeeId) {
         return ResponseEntity.ok(leaveService.getLeaveBalance(employeeId));
     }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR_MANAGER', 'MANAGER', 'EMPLOYEE')")
+    public ResponseEntity<List<LeaveDTO>> getAllLeaves() {
+        return ResponseEntity.ok(leaveService.getAllLeaves());
+    }
 }

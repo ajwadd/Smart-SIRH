@@ -26,6 +26,13 @@ public interface LeaveRepository extends JpaRepository<Leave, UUID> {
     @Query("SELECT COALESCE(SUM(l.daysCount), 0) FROM Leave l WHERE l.employee.id = :employeeId AND l.status = 'APPROVED' AND YEAR(l.startDate) = :year")
     int countApprovedDaysByEmployeeAndYear(@Param("employeeId") UUID employeeId, @Param("year") int year);
 
+    @Query("SELECT COUNT(DISTINCT l.employee.id) FROM Leave l WHERE l.employee.department.id = :departmentId AND l.status = 'APPROVED' AND l.startDate <= :end AND l.endDate >= :start AND l.employee.id != :employeeId")
+    long countActiveLeavesInDepartmentDuringPeriod(
+            @Param("departmentId") UUID departmentId,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("employeeId") UUID employeeId);
+
     @Query("SELECT COUNT(l) FROM Leave l WHERE l.status = 'APPROVED' AND :date >= l.startDate AND :date <= l.endDate")
     long countActiveLeavesOnDate(@Param("date") LocalDate date);
 }

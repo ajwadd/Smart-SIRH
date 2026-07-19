@@ -7,7 +7,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ message: 'Token d\'autorisation manquant' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const response = await fetch(`http://localhost:8081/api/leaves/${id}/approve`, {
       method: 'PATCH',

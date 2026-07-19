@@ -21,4 +21,5 @@ public class LeaveSaveRequest {
 
     private String reason;
     private LeaveType leaveType;
+    private Boolean autoValidate = false;
 }

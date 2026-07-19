@@ -14,4 +14,5 @@ public interface LeaveService {
     List<LeaveDTO> getLeavesByEmployeeId(UUID employeeId);
     List<LeaveDTO> getAllPendingLeaves();
     LeaveBalanceDTO getLeaveBalance(UUID employeeId);
+    java.util.List<LeaveDTO> getAllLeaves();
 }

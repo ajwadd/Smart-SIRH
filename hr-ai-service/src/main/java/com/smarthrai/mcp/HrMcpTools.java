@@ -64,14 +64,38 @@ public class HrMcpTools {
     }
 
     @Tool(description = "Calculer la probabilité d'attrition/démission d'un employé en interrogeant le modèle de Machine Learning.")
-    public Map<String, Object> predictEmployeeChurn(
+    public com.smarthrai.dto.AttritionPrediction predictEmployeeAttrition(
             @ToolParam(description = "Le nom, prénom, matricule ou UUID de l'employé.") String employeeId) {
         try {
-            log.info("MCP Tool predictEmployeeChurn appelé pour l'employé '{}'", employeeId);
+            log.info("MCP Tool predictEmployeeAttrition appelé pour l'employé '{}'", employeeId);
             return hrEmployeeService.predictEmployeeChurn(employeeId);
         } catch (Exception e) {
-            log.error("Erreur dans predictEmployeeChurn : {}", e.getMessage());
-            return Map.of("error", "Une erreur est survenue lors de la prédiction", "details", e.getMessage());
+            log.error("Erreur dans predictEmployeeAttrition : {}", e.getMessage());
+            return new com.smarthrai.dto.AttritionPrediction(
+                    employeeId,
+                    "Inconnu",
+                    "ERREUR",
+                    0.0,
+                    java.util.List.of("Erreur lors de la prédiction : " + e.getMessage())
+            );
+        }
+    }
+
+    @Tool(description = "Détecter si une demande de remboursement de note de frais est suspecte ou frauduleuse à l'aide d'un modèle de Machine Learning (détection d'anomalies).")
+    public com.smarthrai.dto.ExpenseFraudPrediction detectExpenseFraud(
+            @ToolParam(description = "Le montant de la note de frais.") double amount,
+            @ToolParam(description = "La catégorie de la note de frais (ex: Repas, Transport, Hébergement).") String category,
+            @ToolParam(description = "Le jour de la semaine où la dépense a été effectuée (ex: Lundi, Samedi).") String dayOfWeek) {
+        try {
+            log.info("MCP Tool detectExpenseFraud appelé pour montant={}, categorie={}, jour={}", amount, category, dayOfWeek);
+            return hrEmployeeService.detectExpenseFraud(amount, category, dayOfWeek);
+        } catch (Exception e) {
+            log.error("Erreur dans detectExpenseFraud : {}", e.getMessage());
+            return new com.smarthrai.dto.ExpenseFraudPrediction(
+                    amount, category, dayOfWeek,
+                    true, 1.0, "CRITIQUE",
+                    java.util.List.of("Erreur lors de l'audit de fraude : " + e.getMessage())
+            );
         }
     }
 
@@ -120,6 +144,22 @@ public class HrMcpTools {
         } catch (Exception e) {
             log.error("Erreur dans getEmployeeProfile : {}", e.getMessage());
             return createErrorResponse("Erreur de profil", e.getMessage());
+        }
+    }
+
+    @Tool(description = "Évaluer et soumettre une demande de congé. Si elle remplit les critères d'éligibilité (durée <= 3j, présence d'équipe >= 70%, solde suffisant), elle est validée automatiquement. Sinon, elle passe en attente de validation manager.")
+    public JsonNode submitLeaveRequest(
+            @ToolParam(description = "La date de début du congé (YYYY-MM-DD)") String startDate,
+            @ToolParam(description = "La date de fin du congé (YYYY-MM-DD)") String endDate,
+            @ToolParam(description = "Le motif du congé") String reason,
+            @ToolParam(description = "Le type de congé (ANNUAL, SICK, UNPAID, COMPENSATORY)") String leaveType,
+            @ToolParam(description = "Le nom, prénom ou UUID de l'employé") String employeeId) {
+        try {
+            log.info("MCP Tool submitLeaveRequest appelé pour '{}' du '{}' au '{}'", employeeId, startDate, endDate);
+            return hrEmployeeService.submitLeaveRequest(startDate, endDate, reason, leaveType, employeeId);
+        } catch (Exception e) {
+            log.error("Erreur dans submitLeaveRequest : {}", e.getMessage());
+            return createErrorResponse("Erreur de soumission de congé", e.getMessage());
         }
     }
 }

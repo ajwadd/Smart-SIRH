@@ -26,12 +26,10 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
     private final WebSearchService webSearchService;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final com.smarthrai.service.MlPredictionService mlPredictionService;
 
     @Value("${api.service.url:http://smarthr-api:8081/api}")
     private String API_SERVICE_URL;
-
-    @Value("${ml.service.url:http://smarthr-ml-service:8083/predict}")
-    private String mlUrl;
 
     private boolean isUserAuthorized(String targetEmployeeId) {
         String token = com.smarthrai.security.SecurityContext.getToken();
@@ -44,9 +42,10 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
             if (parts.length > 1) {
                 String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
                 JsonNode node = objectMapper.readTree(payload);
-                
-                // Extraire le sub (ID de l'employé connecté)
+                              // Extraire le sub (ID de l'employé connecté)
                 String loggedInEmployeeId = node.has("sub") ? node.get("sub").asText() : null;
+                // Extraire l'employeeId s'il est présent dans le token
+                String tokenEmployeeId = node.has("employeeId") ? node.get("employeeId").asText() : null;
                 
                 // Extraire les rôles
                 List<String> roles = new ArrayList<>();
@@ -60,15 +59,36 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
                         r.contains("ADMIN") || r.contains("HR")
                 );
                 
-                log.info("Vérification JWT - Utilisateur: '{}', Rôles: {}, Cible résolue: '{}', Est Admin/HR: {}", 
-                        loggedInEmployeeId, roles, targetEmployeeId, isAdminOrHr);
-
+                log.info("Vérification JWT - Utilisateur: '{}', EmployeeId du jeton: '{}', Rôles: {}, Cible résolue: '{}', Est Admin/HR: {}", 
+                        loggedInEmployeeId, tokenEmployeeId, roles, targetEmployeeId, isAdminOrHr);
+ 
                 // L'utilisateur est autorisé s'il est Admin/HR, OU s'il consulte son propre dossier
                 if (isAdminOrHr) {
                     return true;
                 }
-                if (targetEmployeeId != null && loggedInEmployeeId != null && targetEmployeeId.equalsIgnoreCase(loggedInEmployeeId)) {
-                    return true;
+                if (targetEmployeeId != null) {
+                    if (tokenEmployeeId != null && targetEmployeeId.equalsIgnoreCase(tokenEmployeeId)) {
+                        return true;
+                    }
+                    if (loggedInEmployeeId != null) {
+                        if (targetEmployeeId.equalsIgnoreCase(loggedInEmployeeId)) {
+                            return true;
+                        }
+                        
+                        String resolvedLoggedInId = loggedInEmployeeId;
+                        if ("employee".equalsIgnoreCase(loggedInEmployeeId)) {
+                            resolvedLoggedInId = "b764d8cb-3f0c-4af0-8a33-118157999847"; // Mohamed El Alami
+                        } else if ("hr".equalsIgnoreCase(loggedInEmployeeId)) {
+                            return true; // L'utilisateur HR a accès à tout
+                        } else {
+                            // Le sub JWT contient le nom d'utilisateur (username). On le résout en UUID.
+                            resolvedLoggedInId = resolveEmployeeId(loggedInEmployeeId);
+                        }
+                        
+                        if (targetEmployeeId.equalsIgnoreCase(resolvedLoggedInId)) {
+                            return true;
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
@@ -119,13 +139,19 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
     }
 
     @Override
-    public Map<String, Object> predictEmployeeChurn(String employeeId) {
+    public com.smarthrai.dto.AttritionPrediction predictEmployeeChurn(String employeeId) {
         employeeId = resolveEmployeeId(employeeId, null);
         log.info("Service predictEmployeeChurn appelé pour l'employé '{}'", employeeId);
         
         // Seuls les Admins/RH peuvent prédire l'attrition des employés
         if (!isUserAuthorized(null)) {
-            return Map.of("error", "Accès refusé", "details", "Seuls les membres RH ou Administrateurs sont autorisés à consulter les risques d'attrition.");
+            return new com.smarthrai.dto.AttritionPrediction(
+                    employeeId,
+                    "Non autorisé",
+                    "ERREUR",
+                    0.0,
+                    List.of("Accès refusé. Seuls les membres RH ou Administrateurs sont autorisés à consulter les risques d'attrition.")
+            );
         }
 
         try {
@@ -133,7 +159,13 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
             String employeeUrl = API_SERVICE_URL + "/employees/" + employeeId;
             JsonNode emp = fetchJsonNode(employeeUrl);
             if (emp.has("error")) {
-                return Map.of("error", "Impossible de récupérer les informations de l'employé", "details", emp.get("details").asText());
+                return new com.smarthrai.dto.AttritionPrediction(
+                        employeeId,
+                        "Inconnu",
+                        "ERREUR",
+                        0.0,
+                        List.of("Impossible de récupérer les informations de l'employé: " + emp.get("details").asText())
+                );
             }
 
             String firstName = emp.has("firstName") ? emp.get("firstName").asText() : "";
@@ -243,45 +275,46 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
                 jobSatisfaction = 4;
             }
 
-            // Interroger le microservice de ML Python
-            Map<String, Object> requestPayload = Map.of(
-                    "age", age,
-                    "monthly_income", monthlyIncome,
-                    "years_at_company", yearsAtCompany,
-                    "job_satisfaction", jobSatisfaction,
-                    "work_life_balance", workLifeBalance,
-                    "overtime", overtime,
-                    "num_promotions", numPromotions);
-
-            log.info("Envoi de la requête prédictive ML : {}", requestPayload);
-            Map<String, Object> predictionResult = restTemplate.postForObject(mlUrl, requestPayload, Map.class);
-            if (predictionResult == null) {
-                return Map.of("error", "Le service de prédiction ML n'a retourné aucun résultat.");
-            }
-
-            double probability = (Double) predictionResult.get("probability");
-            String riskLevel = (String) predictionResult.get("risk_level");
-            List<String> factors = (List<String>) predictionResult.get("factors");
-
-            return Map.of(
-                    "employeeId", employeeId,
-                    "employeeFullName", fullName,
-                    "riskLevel", riskLevel,
-                    "probability", probability,
-                    "influencingFactors", factors
+            // Interroger le microservice de ML Python via MlPredictionService
+            return mlPredictionService.predictAttrition(
+                    employeeId, fullName, age, monthlyIncome, yearsAtCompany,
+                    jobSatisfaction, workLifeBalance, overtime, numPromotions
             );
 
         } catch (Exception e) {
             log.error("Échec de la prédiction de churn pour l'employé : {}", e.getMessage());
-            return Map.of("error", "Impossible d'exécuter la prédiction ML", "details", e.getMessage());
+            return new com.smarthrai.dto.AttritionPrediction(
+                    employeeId,
+                    "Inconnu",
+                    "ERREUR",
+                    0.0,
+                    List.of("Impossible d'exécuter la prédiction ML: " + e.getMessage())
+            );
         }
+    }
+
+    @Override
+    public com.smarthrai.dto.ExpenseFraudPrediction detectExpenseFraud(double amount, String category, String dayOfWeek) {
+        log.info("Service detectExpenseFraud appelé pour le montant {}, catégorie {}, jour {}", amount, category, dayOfWeek);
+        
+        // Seuls les Admins/RH peuvent auditer les fraudes
+        if (!isUserAuthorized(null)) {
+            return new com.smarthrai.dto.ExpenseFraudPrediction(
+                    amount, category, dayOfWeek,
+                    true, 1.0, "CRITIQUE",
+                    List.of("Accès refusé. Seuls les membres RH ou Administrateurs sont autorisés à utiliser l'outil d'audit.")
+            );
+        }
+
+        return mlPredictionService.detectExpenseFraud(amount, category, dayOfWeek);
     }
 
     @Override
     public JsonNode searchEmployees(String keyword) {
         log.info("Service searchEmployees appelé avec le mot-clé '{}'", keyword);
         try {
-            String url = API_SERVICE_URL + "/employees?keyword=" + keyword;
+            String encodedKeyword = java.net.URLEncoder.encode(keyword, java.nio.charset.StandardCharsets.UTF_8);
+            String url = API_SERVICE_URL + "/employees?keyword=" + encodedKeyword;
             JsonNode result = fetchJsonNode(url);
 
             if (isEmptyResult(result)) {
@@ -291,7 +324,8 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
                         if (part.length() <= 2)
                             continue;
                         log.info("Aucun résultat pour '{}'. Tentative avec le mot '{}'", keyword, part);
-                        String fallbackUrl = API_SERVICE_URL + "/employees?keyword=" + part;
+                        String encodedPart = java.net.URLEncoder.encode(part, java.nio.charset.StandardCharsets.UTF_8);
+                        String fallbackUrl = API_SERVICE_URL + "/employees?keyword=" + encodedPart;
                         JsonNode fallbackResult = fetchJsonNode(fallbackUrl);
                         if (!isEmptyResult(fallbackResult)) {
                             return fallbackResult;
@@ -435,7 +469,8 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
 
         log.info("Tentative de résolution de l'identifiant pour '{}'", employeeIdOrNumber);
         try {
-            String url = API_SERVICE_URL + "/employees?keyword=" + employeeIdOrNumber;
+            String encodedKeyword = java.net.URLEncoder.encode(employeeIdOrNumber, java.nio.charset.StandardCharsets.UTF_8);
+            String url = API_SERVICE_URL + "/employees?keyword=" + encodedKeyword;
             JsonNode root = fetchJsonNode(url);
             JsonNode content = root.get("content");
             if (content != null && content.isArray() && content.size() > 0) {
@@ -483,9 +518,10 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
 
                 String[] words = searchText.split("[\\s',.?!]+");
                 for (String word : words) {
-                    if (word.length() > 2 && !stopWords.contains(word.toLowerCase())) {
+                    if (word.length() > 2 && !stopWords.contains(word.toLowerCase()) && !word.matches("\\d+")) {
                         try {
-                            String url = API_SERVICE_URL + "/employees?keyword=" + word;
+                            String encodedWord = java.net.URLEncoder.encode(word, java.nio.charset.StandardCharsets.UTF_8);
+                            String url = API_SERVICE_URL + "/employees?keyword=" + encodedWord;
                             JsonNode root = fetchJsonNode(url);
                             JsonNode content = root.get("content");
                             if (content != null && content.isArray() && content.size() > 0) {
@@ -508,5 +544,49 @@ public class HrEmployeeServiceImpl implements HrEmployeeService {
             }
         }
         return resolved;
+    }
+
+    private <T> T postWithAuth(String url, Object body, Class<T> responseType) {
+        String token = com.smarthrai.security.SecurityContext.getToken();
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        if (token != null && !token.trim().isEmpty()) {
+            headers.set("Authorization", token);
+        }
+        org.springframework.http.HttpEntity<Object> entity = new org.springframework.http.HttpEntity<>(body, headers);
+        return restTemplate.exchange(url, org.springframework.http.HttpMethod.POST, entity, responseType).getBody();
+    }
+
+    @Override
+    public JsonNode submitLeaveRequest(String startDate, String endDate, String reason, String leaveType, String employeeId) {
+        employeeId = resolveEmployeeId(employeeId, null);
+        log.info("Service submitLeaveRequest pour l'employé '{}' du '{}' au '{}'", employeeId, startDate, endDate);
+
+        if (!isUserAuthorized(employeeId)) {
+            return createErrorResponse("Accès refusé", "Vous n'avez pas l'autorisation de soumettre une demande de congé pour cet employé.");
+        }
+
+        try {
+            String url = API_SERVICE_URL + "/leaves";
+            
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            body.put("employeeId", employeeId);
+            body.put("startDate", startDate);
+            body.put("endDate", endDate);
+            body.put("reason", reason);
+            body.put("leaveType", leaveType);
+            body.put("autoValidate", true);
+
+            String response = postWithAuth(url, body, String.class);
+            if (response != null && !response.trim().isEmpty()) {
+                return objectMapper.readTree(response);
+            }
+        } catch (Exception e) {
+            log.error("Échec de la soumission de congé pour {} : {}", employeeId, e.getMessage());
+            return objectMapper.createObjectNode()
+                    .put("error", "Service de congé indisponible ou erreur de traitement")
+                    .put("details", e.getMessage());
+        }
+        return objectMapper.createObjectNode();
     }
 }

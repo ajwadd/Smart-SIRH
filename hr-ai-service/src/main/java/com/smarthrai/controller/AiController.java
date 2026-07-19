@@ -25,6 +25,21 @@ public class AiController {
     private final ChatService chatService;
     private final DocumentExtractorService documentExtractorService;
     private final VectorStore vectorStore;
+    private final com.smarthrai.service.HrEmployeeService hrEmployeeService;
+
+    @GetMapping("/predict/employee/{employeeId}")
+    public ResponseEntity<com.smarthrai.dto.AttritionPrediction> getEmployeeAttrition(
+            @PathVariable("employeeId") String employeeId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        log.info("Requête d'attrition reçue via API pour l'employé '{}'", employeeId);
+        try {
+            com.smarthrai.security.SecurityContext.setToken(authHeader);
+            com.smarthrai.dto.AttritionPrediction prediction = hrEmployeeService.predictEmployeeChurn(employeeId);
+            return ResponseEntity.ok(prediction);
+        } finally {
+            com.smarthrai.security.SecurityContext.clear();
+        }
+    }
 
     @PostMapping("/index")
     public ResponseEntity<Void> indexDocument(

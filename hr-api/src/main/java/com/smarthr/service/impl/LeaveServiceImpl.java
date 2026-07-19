@@ -57,7 +57,79 @@ public class LeaveServiceImpl implements LeaveService {
         leaveMapper.updateEntity(request, leave);
         leave.setEmployee(employee);
         leave.setDaysCount((int) daysCount);
-        leave.setStatus(LeaveStatus.PENDING);
+
+        LeaveStatus status = LeaveStatus.PENDING;
+        String validationNotes = null;
+        String approvedBy = null;
+
+        if (Boolean.TRUE.equals(request.getAutoValidate())) {
+            StringBuilder notesBuilder = new StringBuilder();
+            boolean eligible = true;
+
+            // 1. Type check
+            if (request.getLeaveType() != com.smarthr.enums.LeaveType.ANNUAL && request.getLeaveType() != com.smarthr.enums.LeaveType.COMPENSATORY) {
+                eligible = false;
+                notesBuilder.append("- Type de congé non éligible pour l'auto-validation (uniquement ANNUAL ou COMPENSATORY).\n");
+            }
+
+            // 2. Duration check
+            if (daysCount > 3) {
+                eligible = false;
+                notesBuilder.append("- La durée dépasse la limite de 3 jours ouvrés (demandé: ").append(daysCount).append(" jours).\n");
+            }
+
+            // 3. Notice period check
+            long noticeDays = ChronoUnit.DAYS.between(LocalDate.now(), request.getStartDate());
+            if (noticeDays < 2) {
+                eligible = false;
+                notesBuilder.append("- Délai de prévenance insuffisant (minimum 48h avant le début du congé, demandé: ").append(noticeDays).append(" jours).\n");
+            }
+
+            // 4. Team Overlap check
+            if (employee.getDepartment() != null) {
+                UUID deptId = employee.getDepartment().getId();
+                long totalDept = employeeRepository.countActiveByDepartmentId(deptId);
+                if (totalDept > 0) {
+                    long overlappingDept = leaveRepository.countActiveLeavesInDepartmentDuringPeriod(deptId, request.getStartDate(), request.getEndDate(), employee.getId());
+                    double presenceRate = ((double) (totalDept - overlappingDept - 1) / totalDept) * 100.0;
+                    if (presenceRate < 70.0) {
+                        eligible = false;
+                        notesBuilder.append("- Taux de présence du département insuffisant (requis: >=70%, avec votre congé il serait de ")
+                                    .append(String.format("%.1f", presenceRate)).append("%).\n");
+                    }
+                }
+            }
+
+            // 5. Blackout period check
+            boolean fallsInBlackout = false;
+            LocalDate start = request.getStartDate();
+            LocalDate end = request.getEndDate();
+            for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+                if (d.getMonthValue() == 12 && d.getDayOfMonth() >= 20) {
+                    fallsInBlackout = true;
+                    break;
+                }
+            }
+            if (fallsInBlackout) {
+                eligible = false;
+                notesBuilder.append("- Demande de congé pendant la période bloquée de fin d'année (20 décembre au 31 décembre).\n");
+            }
+
+            if (eligible) {
+                status = LeaveStatus.APPROVED;
+                approvedBy = "AI_AGENT";
+                validationNotes = "Approuvé automatiquement par l'agent IA de SmartHR. Tous les critères ont été respectés.";
+            } else {
+                status = LeaveStatus.PENDING;
+                validationNotes = "Soumis à la validation du manager pour les raisons suivantes :\n" + notesBuilder.toString();
+            }
+        } else {
+            validationNotes = "Demande standard soumise pour validation manager.";
+        }
+
+        leave.setStatus(status);
+        leave.setApprovedBy(approvedBy);
+        leave.setValidationNotes(validationNotes);
 
         Leave saved = leaveRepository.save(leave);
         return leaveMapper.toDTO(saved);
@@ -135,5 +207,13 @@ public class LeaveServiceImpl implements LeaveService {
                 .totalConsumed(totalConsumed)
                 .totalAvailable(totalAvailable)
                 .build();
+     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LeaveDTO> getAllLeaves() {
+        return leaveRepository.findAll().stream()
+                .map(leaveMapper::toDTO)
+                .collect(Collectors.toList());
     }
 }

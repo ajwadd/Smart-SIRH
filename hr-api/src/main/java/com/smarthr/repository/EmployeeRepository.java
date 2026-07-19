@@ -33,6 +33,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID>, JpaSp
     @Query("SELECT COUNT(e) FROM Employee e WHERE e.department.id = :departmentId")
     long countByDepartmentId(@Param("departmentId") UUID departmentId);
 
+    @Query("SELECT COUNT(e) FROM Employee e WHERE e.department.id = :departmentId AND e.status = 'ACTIVE'")
+    long countActiveByDepartmentId(@Param("departmentId") UUID departmentId);
+
     @Query("SELECT e FROM Employee e WHERE " +
            "LOWER(e.firstName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(e.lastName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
