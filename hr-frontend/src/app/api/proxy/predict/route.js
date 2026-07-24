@@ -50,8 +50,12 @@ export async function GET(request) {
       // Assurer la compatibilité avec le format attendu par le frontend
       const mappedData = {
         ...data,
-        risk_level: data.riskLevel,
-        factors: data.influencingFactors
+        risk_level: data.riskLevel || data.risk_level,
+        factors: data.influencingFactors || data.factors,
+        stay_probability: data.stayProbability ?? data.stay_probability,
+        leave_probability: data.leaveProbability ?? data.leave_probability,
+        shap_explanations: data.shapExplanations || data.shap_explanations,
+        feature_importances: data.featureImportances || data.feature_importances
       };
       return NextResponse.json(mappedData, { status: response.status });
     } else {

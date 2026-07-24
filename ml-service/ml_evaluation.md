@@ -1,48 +1,60 @@
-# Rapport d'Évaluation Quantitative — Modèle Prédictif d'Attrition (ML)
+# Rapport d'Évaluation Quantitative & Rigoureuse — XGBoost + SMOTE imblearn
 
-Ce document présente l'évaluation quantitative du modèle de classification entraîné pour prédire les démissions d'employés (churn).
+Ce document présente l'évaluation scientifique sans fuite de données (*Zero Data Leakage*) du modèle d'attrition des employés.
 
-## 1. Description du Modèle
-*   **Algorithme** : Random Forest Classifier (Scikit-Learn)
-*   **Hyperparamètres** : `n_estimators=100`, `max_depth=8`, `class_weight='balanced'`
-*   **Caractéristiques d'Entrée** :
-    1.  `age` (Âge de l'employé)
-    2.  `monthly_income` (Salaire brut mensuel en MAD)
-    3.  `years_at_company` (Ancienneté en années)
-    4.  `job_satisfaction` (Score de satisfaction de 1 à 4)
-    5.  `work_life_balance` (Score d'équilibre vie pro/perso de 1 à 4)
-    6.  `overtime` (Heures supplémentaires effectuées : 0 ou 1)
-    7.  `num_promotions` (Nombre de promotions sur les 5 dernières années)
+## 1. Description de la Pipeline imblearn
+*   **Jeu de Données** : IBM HR Employee Attrition & Performance (1470 lignes)
+*   **Pipeline** : `imblearn.pipeline.Pipeline([('smote', SMOTE()), ('model', XGBClassifier())])`
+*   **Intégrité Scientifique** : SMOTE est exécuté exclusivement à l'intérieur de chaque pli de la validation croisée.
+*   **Hyperparamètres XGBoost** : `n_estimators=120`, `max_depth=4`, `learning_rate=0.06`, `subsample=0.8`
+*   **Version du Modèle** : `v2.0`
 
-## 2. Performances du Modèle sur le Jeu de Test (20% de 1500 échantillons)
-Le modèle a été évalué par rapport à une baseline représentée par un classifieur majoritaire (ZeroR).
+## 2. Validation Croisée Scientifique (5-Fold Stratified CV sans Fuite)
+*   **Scores ROC-AUC par Fold** : `[0.7442, 0.7346, 0.7761, 0.7812, 0.7063]`
+*   **Moyenne ROC-AUC en CV** : **74.85%** (+/- 5.53%)
 
-| Métrique | Modèle Random Forest | Baseline (Majoritaire) |
+## 3. Métriques de Performance sur le Test Set (20% Holdout)
+
+| Métrique | Valeur Modèle (Imblearn XGBoost) | Baseline (Majoritaire) |
 | :--- | :--- | :--- |
-| **Accuracy** | 89.33% | 80.00% |
-| **F1-Score** | 73.77% | 0.00% |
-| **ROC AUC** | 94.81% | 50.00% |
+| **Accuracy** | **79.25%** | 83.88% |
+| **Précision** | **38.33%** | 0.00% |
+| **Rappel (Recall)** | **48.94%** | 0.00% |
+| **F1-Score** | **42.99%** | 0.00% |
+| **ROC AUC** | **76.66%** | 50.00% |
+
+### Matrice de Confusion
+```text
+Vrais Négatifs (TN): 210 | Faux Positifs (FP): 37
+Faux Négatifs (FN): 24 | Vrais Positifs (TP): 23
+```
 
 ### Rapport de Classification Complet :
 ```text
               precision    recall  f1-score   support
 
-           0       0.94      0.93      0.93       240
-           1       0.73      0.75      0.74        60
+           0       0.90      0.85      0.87       247
+           1       0.38      0.49      0.43        47
 
-    accuracy                           0.89       300
-   macro avg       0.83      0.84      0.84       300
-weighted avg       0.89      0.89      0.89       300
+    accuracy                           0.79       294
+   macro avg       0.64      0.67      0.65       294
+weighted avg       0.82      0.79      0.80       294
 
 ```
 
-## 3. Importance des Caractéristiques (Feature Importance)
-L'importance des variables calculée par la forêt d'arbres décisionnels permet d'expliquer pourquoi un employé est à risque :
-
-1. **job_satisfaction** : 27.77%
-2. **work_life_balance** : 18.84%
-3. **monthly_income** : 15.41%
-4. **overtime** : 13.07%
-5. **num_promotions** : 9.46%
-6. **age** : 8.72%
-7. **years_at_company** : 6.72%
+## 4. Feature Importances
+1. **stock_option_level** : 24.84%
+2. **job_satisfaction** : 10.51%
+3. **work_life_balance** : 8.90%
+4. **environment_satisfaction** : 7.43%
+5. **job_level** : 6.13%
+6. **training_times_last_year** : 5.54%
+7. **monthly_income** : 5.19%
+8. **years_in_current_role** : 4.84%
+9. **age** : 4.35%
+10. **years_at_company** : 4.27%
+11. **total_working_years** : 3.79%
+12. **distance_from_home** : 3.78%
+13. **overtime** : 3.54%
+14. **years_since_last_promotion** : 3.50%
+15. **num_companies_worked** : 3.40%

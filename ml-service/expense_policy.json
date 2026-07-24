@@ -1,0 +1,35 @@
+{
+  "policy_name": "SmartHR Enterprise Expense Policy v1.0",
+  "limits": {
+    "MEAL": {
+      "max_amount_mad": 300.0,
+      "description": "Plafond repas standard"
+    },
+    "TRAVEL": {
+      "max_amount_mad": 2500.0,
+      "description": "Plafond transport"
+    },
+    "HOTEL": {
+      "max_amount_mad": 3000.0,
+      "description": "Plafond hébergement"
+    },
+    "LODGING": {
+      "max_amount_mad": 3000.0,
+      "description": "Plafond hébergement"
+    },
+    "FUEL": {
+      "max_amount_mad": 800.0,
+      "description": "Plafond carburant"
+    },
+    "OTHER": {
+      "max_amount_mad": 500.0,
+      "description": "Plafond autres frais"
+    }
+  },
+  "rules": {
+    "max_submission_delay_days": 15,
+    "allow_weekend_submissions": false,
+    "require_receipt_above_mad": 100.0,
+    "allowed_submission_hours": [6, 22]
+  }
+}

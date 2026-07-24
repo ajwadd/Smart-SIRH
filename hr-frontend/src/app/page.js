@@ -676,6 +676,7 @@ export default function Home() {
       job_satisfaction: intVal(jobSatisfaction),
       work_life_balance: intVal(workLifeBalance),
       overtime: intVal(overtime),
+      years_since_last_promotion: intVal(numPromotions),
       num_promotions: intVal(numPromotions)
     };
 

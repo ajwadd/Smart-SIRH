@@ -44,6 +44,7 @@ public class MlPredictionServiceImpl implements MlPredictionService {
                     "job_satisfaction", jobSatisfaction,
                     "work_life_balance", workLifeBalance,
                     "overtime", overtime,
+                    "years_since_last_promotion", numPromotions,
                     "num_promotions", numPromotions
             );
 

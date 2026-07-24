@@ -1,0 +1,36 @@
+{
+  "model_name": "Imblearn XGBoost + SMOTE Pipeline (Zero Data Leakage)",
+  "model_version": "v2.0",
+  "risk_thresholds": {
+    "high": 0.6,
+    "medium": 0.35
+  },
+  "features": [
+    "age",
+    "monthly_income",
+    "years_at_company",
+    "job_satisfaction",
+    "work_life_balance",
+    "overtime",
+    "years_since_last_promotion"
+  ],
+  "metrics": {
+    "cv_roc_auc_mean": 0.7485,
+    "accuracy": 0.7925,
+    "recall": 0.4894,
+    "precision": 0.3833,
+    "f1_score": 0.4299,
+    "roc_auc": 0.7666,
+    "confusion_matrix": [
+      [
+        210,
+        37
+      ],
+      [
+        24,
+        23
+      ]
+    ],
+    "training_date": "2026-07-21 11:20"
+  }
+}
