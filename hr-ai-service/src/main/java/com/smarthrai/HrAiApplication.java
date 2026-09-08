@@ -19,10 +19,6 @@ public class HrAiApplication {
         return new org.springframework.web.client.RestTemplate();
     }
 
-    @Bean
-    public ToolCallbackProvider toolCallbackProvider(HrMcpTools hrMcpTools) {
-        System.out.println(" tools object ");
-        return MethodToolCallbackProvider.builder().toolObjects(hrMcpTools).build();
-    }
+    
 
 }
